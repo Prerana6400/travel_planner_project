@@ -4,11 +4,11 @@ import cors from "cors";
 
 const app = express();
 
-// Middleware
+
 app.use(cors());
 app.use(express.json());
 
-// Config
+
 const PORT = process.env.PORT || 5000;
 const MONGODB_URI = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/wander-main-project";
 
@@ -24,7 +24,7 @@ mongoose
     process.exit(1);
   });
 
-// Inline Destination model
+
 const destinationSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -99,7 +99,7 @@ app.get("/", (req, res) => {
   res.send("root is working");
 });
 
-// API: GET /api/destinations?category=...&q=...
+
 app.get("/api/destinations", async (req, res) => {
   try {
     const { category, q } = req.query;
