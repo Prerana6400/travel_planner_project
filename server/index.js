@@ -1,6 +1,8 @@
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
+import Destination from "./models/Destination.js";
+import Trip from "./models/Trip.js";
 
 const app = express();
 
@@ -23,24 +25,6 @@ mongoose
     console.error("MongoDB connection error:", err);
     process.exit(1);
   });
-
-
-const destinationSchema = new mongoose.Schema(
-  {
-    name: { type: String, required: true },
-    category: { type: String, enum: ["historical", "nature", "adventure", "cuisine"], required: true },
-    location: { type: String, required: true },
-    rating: { type: Number, default: 0 },
-    duration: { type: String },
-    price: { type: String },
-    imageUrl: { type: String },
-    description: { type: String },
-    highlights: [{ type: String }],
-  },
-  { timestamps: true }
-);
-
-const Destination = mongoose.models.Destination || mongoose.model("Destination", destinationSchema);
 
 // Seed DB if empty
 async function seedIfEmpty() {
