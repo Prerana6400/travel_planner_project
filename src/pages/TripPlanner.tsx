@@ -13,6 +13,8 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiPost, type Trip } from "@/lib/api";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface TripPlan {
   destination: string;
@@ -28,6 +30,8 @@ interface TripPlan {
 
 const TripPlanner = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     destination: "",
     startDate: undefined as Date | undefined,
@@ -121,11 +125,29 @@ const TripPlanner = () => {
     }
   };
 
-  const saveTripPlan = () => {
-    toast({
-      title: "Trip Saved!",
-      description: "Your trip plan has been saved to your account.",
-    });
+  const saveTripPlan = async () => {
+    if (!generatedPlan) {
+      toast({ title: "No plan to save", description: "Generate a trip plan first.", variant: "destructive" });
+      return;
+    }
+    try {
+      const payload: Trip = {
+        title: `Trip to ${formData.destination || generatedPlan.destination}`,
+        destination: formData.destination || generatedPlan.destination,
+        startDate: formData.startDate ? formData.startDate.toISOString() : undefined,
+        endDate: formData.endDate ? formData.endDate.toISOString() : undefined,
+        travelers: formData.travelers,
+        budget: formData.budget,
+        interests: formData.interests,
+        itinerary: generatedPlan.itinerary,
+      };
+      await apiPost<Trip>("/api/trips", payload);
+      queryClient.invalidateQueries({ queryKey: ["trips"] });
+      toast({ title: "Trip Saved!", description: "It's now available in Saved Trips." });
+      navigate("/saved-trips");
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to save trip.", variant: "destructive" });
+    }
   };
 
   const shareTripPlan = () => {

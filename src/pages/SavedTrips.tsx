@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MapPin, Calendar, Users, Share, Download, Trash2, Edit, Heart, Clock, Star } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiGet, type Trip } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import maharashtraHero from "@/assets/maharashtra-hero.jpg";
 import historicalLandmarks from "@/assets/historical-landmarks.jpg";
@@ -13,48 +15,29 @@ const SavedTrips = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("saved-trips");
 
-  // Mock saved trips data
-  const savedTrips = [
-    {
-      id: 1,
-      title: "Mumbai to Lonavala Weekend",
-      destination: "Lonavala",
-      dates: "Dec 15-17, 2024",
-      duration: "3 Days, 2 Nights",
-      travelers: 4,
-      status: "upcoming",
-      image: natureTreks,
-      budget: "₹25,000",
-      highlights: ["Hill Station", "Waterfalls", "Adventure"],
-      createdAt: "2024-01-15"
-    },
-    {
-      id: 2,
-      title: "Historical Pune Tour",
-      destination: "Pune",
-      dates: "Jan 20-22, 2024",
-      duration: "3 Days, 2 Nights", 
-      travelers: 2,
-      status: "completed",
-      image: historicalLandmarks,
-      budget: "₹18,000",
-      highlights: ["Historical Sites", "Culture", "Food"],
-      createdAt: "2024-01-10"
-    },
-    {
-      id: 3,
-      title: "Maharashtra Culture Journey",
-      destination: "Multiple Cities",
-      dates: "Mar 10-15, 2024",
-      duration: "6 Days, 5 Nights",
-      travelers: 6,
-      status: "draft",
-      image: maharashtraHero,
-      budget: "₹45,000",
-      highlights: ["Cultural Tour", "Heritage", "Food Tour"],
-      createdAt: "2024-01-12"
-    }
-  ];
+  // Load saved trips from backend
+  const { data: tripsData, isLoading } = useQuery({
+    queryKey: ["trips"],
+    queryFn: async () => apiGet<{ items: Trip[]; total: number }>("/api/trips"),
+  });
+  
+  const savedTrips = useMemo(() => {
+    const raw = tripsData?.items ?? [];
+    return raw.map((t: any) => {
+      const start = t.startDate ? new Date(t.startDate) : undefined;
+      const end = t.endDate ? new Date(t.endDate) : undefined;
+      const durationDays = start && end ? Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))) : undefined;
+      return {
+        ...t,
+        id: t.id || t._id,
+        image: t.imageUrl || maharashtraHero,
+        dates: start && end ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}` : "Custom Dates",
+        duration: durationDays ? `${durationDays} Day${durationDays > 1 ? "s" : ""}` : "",
+        highlights: Array.isArray(t.interests) ? t.interests : [],
+        status: t.status || "upcoming",
+      };
+    });
+  }, [tripsData]);
 
   // Mock favorite destinations
   const favoriteDestinations = [
@@ -90,11 +73,18 @@ const SavedTrips = () => {
     });
   };
 
-  const handleDelete = (tripId: number) => {
+  const handleDelete = (tripId: string | number) => {
     toast({
       title: "Trip Deleted",
       description: "The trip has been removed from your saved trips.",
     });
+  };
+
+  const formatDates = (trip: Trip) => {
+    if (trip.startDate && trip.endDate) {
+      return `${new Date(trip.startDate).toLocaleDateString()} - ${new Date(trip.endDate).toLocaleDateString()}`;
+    }
+    return "Custom Dates";
   };
 
   const getStatusColor = (status: string) => {

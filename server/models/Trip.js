@@ -11,6 +11,7 @@ const ItineraryDaySchema = new mongoose.Schema(
   { _id: false }
 );
 
+
 const TripSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },

@@ -5,6 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search, MapPin, Star, Clock, Camera, Mountain, Waves, UtensilsCrossed, Filter } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import historicalLandmarks from "@/assets/historical-landmarks.jpg";
 import natureTreks from "@/assets/nature-treks.jpg";
@@ -41,6 +51,16 @@ const Explore = () => {
     }
   });
   const destinations = data?.items || [];
+
+  const [selected, setSelected] = useState<Destination | null>(null);
+  const imageFor = (d: Destination) =>
+    d.category === "historical"
+      ? historicalLandmarks
+      : d.category === "nature"
+      ? natureTreks
+      : d.category === "adventure"
+      ? adventureSpots
+      : localCuisine;
 
   useEffect(() => {
     if (category) {
@@ -145,10 +165,10 @@ const Explore = () => {
         {/* Destinations Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {destinations.map((destination) => (
-            <Card key={destination.id} className="group cursor-pointer transition-smooth hover:card-shadow-hover hover:-translate-y-1 overflow-hidden">
+            <Card key={(destination as any).id || destination._id} className="group cursor-pointer transition-smooth hover:card-shadow-hover hover:-translate-y-1 overflow-hidden">
               <div className="relative h-48">
                 <img
-                  src={(destination as any).image || (destination as any).imageUrl || (destination.category === "historical" ? historicalLandmarks : destination.category === "nature" ? natureTreks : destination.category === "adventure" ? adventureSpots : localCuisine)}
+                  src={destination.category === "historical" ? historicalLandmarks : destination.category === "nature" ? natureTreks : destination.category === "adventure" ? adventureSpots : localCuisine}
                   alt={destination.name}
                   className="w-full h-full object-cover transition-smooth group-hover:scale-105"
                 />
@@ -197,7 +217,7 @@ const Explore = () => {
                 </div>
 
                 <div className="flex gap-2">
-                  <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-fast">
+                  <Button onClick={() => setSelected(destination)} className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 hover:scale-105 transition-fast">
                     View Details
                   </Button>
                   <Link to="/plan-trip">
@@ -233,6 +253,55 @@ const Explore = () => {
             </Button>
           </div>
         )}
+
+        {/* Details Modal */}
+        <AlertDialog open={!!selected} onOpenChange={(open) => { if (!open) setSelected(null); }}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl">
+                {selected?.name}
+              </AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div>
+                  {selected && (
+                    <div className="space-y-4">
+                      <div className="relative h-56 w-full rounded-md overflow-hidden">
+                        <img src={selected ? imageFor(selected) : undefined} alt={selected?.name || ""} className="w-full h-full object-cover" />
+                        <div className="absolute top-3 left-3 bg-primary/90 text-white text-xs rounded-full px-3 py-1">{selected?.price}</div>
+                        <div className="absolute top-3 right-3 bg-white/90 text-xs rounded-full px-2 py-1 flex items-center"><Star className="h-3 w-3 text-yellow-500 mr-1" />{selected?.rating}</div>
+                      </div>
+
+                      <div className="flex items-center text-muted-foreground gap-4">
+                        <div className="flex items-center"><MapPin className="h-4 w-4 mr-1" /> {selected?.location}</div>
+                        <div className="flex items-center"><Clock className="h-4 w-4 mr-1" /> {selected?.duration}</div>
+                      </div>
+
+                      {selected?.description && (
+                        <p className="text-sm text-foreground/80">{selected.description}</p>
+                      )}
+
+                      {selected?.highlights && selected.highlights.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {selected.highlights.map((h, idx) => (
+                            <span key={idx} className="text-xs bg-secondary rounded-full px-3 py-1">{h}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setSelected(null)}>Close</AlertDialogCancel>
+              <AlertDialogAction asChild>
+                <a href="/plan-trip" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-primary-foreground">
+                  Add to Trip
+                </a>
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import cors from "cors";
 import Destination from "./models/Destination.js";
 import Trip from "./models/Trip.js";
+import seedDestinations from "./data/destinations.seed.js";
 
 const app = express();
 
@@ -31,51 +32,8 @@ async function seedIfEmpty() {
   const count = await Destination.countDocuments();
   if (count > 0) return;
 
-  const docs = [
-    {
-      name: "Aurangabad Caves Tour",
-      category: "historical",
-      location: "Aurangabad",
-      rating: 4.9,
-      duration: "2 Days",
-      price: "₹6,500",
-      description: "Ancient rock-cut caves with exquisite carvings.",
-      highlights: ["Ajanta & Ellora nearby", "UNESCO heritage", "Guided tours"],
-    },
-    {
-      name: "Mumbai to Lonavala",
-      category: "nature",
-      location: "Lonavala",
-      rating: 4.8,
-      duration: "2 Days",
-      price: "₹4,200",
-      description: "Green valleys, waterfalls, and misty viewpoints.",
-      highlights: ["Tiger Point", "Bhushi Dam", "Monsoon treks"],
-    },
-    {
-      name: "Konkan Coast Adventure",
-      category: "adventure",
-      location: "Konkan",
-      rating: 4.6,
-      duration: "4 Days",
-      price: "₹9,800",
-      description: "Beaches, water sports, and coastal cuisine.",
-      highlights: ["Water sports", "Sea forts", "Seafood"],
-    },
-    {
-      name: "Pune Food Trail",
-      category: "cuisine",
-      location: "Pune",
-      rating: 4.7,
-      duration: "1 Day",
-      price: "₹1,200",
-      description: "Explore iconic eateries and local Maharashtrian dishes.",
-      highlights: ["Misal pav", "Bakeries", "Street food"],
-    },
-  ];
-
-  await Destination.insertMany(docs);
-  console.log("Seeded destinations");
+  await Destination.insertMany(seedDestinations);
+  console.log(`Seeded destinations: ${seedDestinations.length}`);
 }
 
 // Health route
@@ -87,6 +45,10 @@ app.get("/", (req, res) => {
 app.get("/api/destinations", async (req, res) => {
   try {
     const { category, q } = req.query;
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.max(parseInt(req.query.limit) || 12, 1);
+    const sortParam = (req.query.sort || "popular").toString();
+
     const filter = {};
 
     if (category && category !== "all") {
@@ -99,13 +61,78 @@ app.get("/api/destinations", async (req, res) => {
       ];
     }
 
-    const items = await Destination.find(filter).lean();
+    const sort = (() => {
+      switch (sortParam) {
+        case "rating":
+          return { rating: -1 };
+        case "price-low":
+          return { numericPrice: 1 };
+        case "price-high":
+          return { numericPrice: -1 };
+        case "popular":
+        default:
+          return { rating: -1, createdAt: -1 };
+      }
+    })();
+
+    const total = await Destination.countDocuments(filter);
+    const items = await Destination.find(filter)
+      .sort(sort)
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean();
     const mapped = items.map((d) => ({ ...d, id: d._id?.toString() }));
 
-    res.json({ items: mapped, total: mapped.length, page: 1, limit: mapped.length });
+    res.json({ items: mapped, total, page, limit });
   } catch (err) {
     console.error("GET /api/destinations error:", err);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Trips API
+app.post("/api/trips", async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const trip = await Trip.create({
+      title: payload.title,
+      destination: payload.destination,
+      startDate: payload.startDate ? new Date(payload.startDate) : undefined,
+      endDate: payload.endDate ? new Date(payload.endDate) : undefined,
+      travelers: payload.travelers,
+      budget: payload.budget,
+      interests: Array.isArray(payload.interests) ? payload.interests : [],
+      itinerary: Array.isArray(payload.itinerary) ? payload.itinerary : [],
+      status: payload.status || "upcoming",
+      imageUrl: payload.imageUrl,
+    });
+    const json = trip.toJSON();
+    res.status(201).json({ ...json, id: json._id?.toString() });
+  } catch (err) {
+    console.error("POST /api/trips error:", err);
+    res.status(400).json({ message: "Invalid trip payload" });
+  }
+});
+
+app.get("/api/trips", async (_req, res) => {
+  try {
+    const trips = await Trip.find().sort({ createdAt: -1 }).lean();
+    const mapped = trips.map((t) => ({ ...t, id: t._id?.toString() }));
+    res.json({ items: mapped, total: mapped.length });
+  } catch (err) {
+    console.error("GET /api/trips error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+app.delete("/api/trips/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    await Trip.findByIdAndDelete(id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /api/trips/:id error:", err);
+    res.status(400).json({ message: "Invalid id" });
   }
 });
 
